@@ -1,12 +1,57 @@
 # Live inference defaults
-input_sr = 44100
+#
+# Audio capture and windowing
+#
+# Input device sample rate.
+# - 16000 reduces CPU and resampling latency (model still uses 16k internally).
+# - 44100 can be more compatible with devices/drivers, but adds resampling cost.
+# - Higher rates increase backlog RAM for the same max_lag_sec.
+input_sr = 16000
+#
+# Window length for each inference.
+# - Longest contributor to base latency: you must collect this much audio first.
+# - Increasing window_sec usually dominates latency more than agg_window_n or debounce_k.
+# - Longer windows smooth predictions and reduce false flips.
+# - Too short can destabilize fridge detection.
 window_sec = 6.0
+#
+# Update interval (hop between windows).
+# - Contributes linearly to update cadence and to smoothing/debounce delay.
+# - Smaller hop gives faster updates but more compute per second.
+# - Larger hop reduces CPU load but slows responsiveness and can miss short events.
 hop_sec = 1.5
+#
+# Median history length (number of windows for smoothing).
+# - Adds lag of roughly (agg_window_n - 1) * hop_sec, typically less than window_sec.
+# - Larger = more stable, fewer blips, but more lag.
+# - Smaller = more responsive, but noisier.
 agg_window_n = 7
-ac_on = 0.80
+
+# Hysteresis thresholds per label
+#
+# Hysteresis uses separate on/off thresholds to prevent rapid toggling.
+# - Wider gaps (higher on, lower off) reduce flapping but can delay transitions.
+# - Narrow gaps respond faster but can oscillate near the boundary.
+# - Keep on > off for each label.
+ac_on = 0.85
 ac_off = 0.60
 fr_on = 0.75
-fr_off = 0.45
+fr_off = 0.50
+
+# Debounce final 3-state output (require K identical updates).
+# - Adds delay of roughly (debounce_k - 1) * hop_sec on top of hysteresis.
+# - Typically smaller than window_sec but can be comparable to agg_window_n delay.
+# - Higher K reduces flip-flops but adds extra delay.
 debounce_k = 2
-sd_device = "mps"
+
+# Device selection
+# - Set to a device index or substring to avoid default-device surprises.
+# - "" uses the OS default input device.
+sd_device = ""
+
+# Backlog safety limit (seconds of queued audio before abort).
+# - Does not add latency by itself; it sets the maximum tolerated processing lag.
+# - Higher tolerates slower inference but allows larger worst-case latency and RAM.
+# - Lower fails fast if processing can't keep up.
+# - RAM roughly scales with input_sr * max_lag_sec.
 max_lag_sec = 15.0
