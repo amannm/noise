@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.metrics import average_precision_score, roc_auc_score
 
-from noise.model.baseline import LABELS, extract_features, load_bundle
+from noise.model.baseline import LABELS, BaselineFeatureConfig, extract_features, load_bundle
 from noise.training.dataset import WindowConfig, WindowedWavDataset, list_wav_files
 
 

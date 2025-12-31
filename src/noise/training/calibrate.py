@@ -7,7 +7,7 @@ import numpy as np
 import yaml
 
 from noise.config.loader import load_config, merge_config
-from noise.model.baseline import LABELS, extract_features, load_bundle
+from noise.model.baseline import LABELS, BaselineFeatureConfig, extract_features, load_bundle
 from noise.training.dataset import WindowConfig, WindowedWavDataset, list_wav_files
 
 
