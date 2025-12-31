@@ -5,5 +5,10 @@
 [BEATs Source Code](reference/unilm/beats)
 
 # Environment
-- You **MUST** only use `uv` for executing Python scripts.
-- `./samples` contains steady-state, 3-minute `.wav` files for each possible state.
+- You **MUST** use `uv` for executing Python scripts.
+- `./samples` contains steady-state, 3-minute `.m4a` files for each possible state.
+
+# Additional constraints
+- No backwards compatibility.
+- No fallback behaviors.
+- No legacy code.
