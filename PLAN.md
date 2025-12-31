@@ -253,12 +253,4 @@ Deliverable:
 4. **M4: Calibration**
    - Auto thresholds persisted.
 5. **M5: Optimization**
-   - ONNX/CoreML export tools; latency benchmark pending.
-
----
-
-## 8) Acceptance Criteria (Mapped)
-- Stable, non-flapping events: validated in M2 + M3.
-- Response within 2–10s: verified in live tests.
-- Real-time MacBook performance: benchmarked in M5.
-- Calibration using steady-state clips only: delivered in M4.
+   - ONNX/CoreML export tools.
