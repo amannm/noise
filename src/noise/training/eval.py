@@ -7,6 +7,14 @@ from pathlib import Path
 import numpy as np
 from sklearn.metrics import average_precision_score, roc_auc_score
 
+from noise.config.loader import (
+    get_float,
+    get_int,
+    get_nested,
+    get_path,
+    load_config,
+    load_default_config,
+)
 from noise.model.baseline import LABELS, BaselineFeatureConfig, extract_features, load_bundle
 from noise.training.dataset import WindowConfig, WindowedWavDataset, list_wav_files
 
@@ -24,26 +32,37 @@ def _build_matrix(dataset: WindowedWavDataset, feature_config: BaselineFeatureCo
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a baseline model on steady-state clips.")
+    parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--samples-dir", type=Path, default=Path("samples"))
-    parser.add_argument("--model-path", type=Path, default=Path("models/baseline.joblib"))
-    parser.add_argument("--sample-rate", type=int, default=16000)
-    parser.add_argument("--window-s", type=float, default=4.0)
-    parser.add_argument("--hop-s", type=float, default=0.5)
+    parser.add_argument("--model-path", type=Path, default=None)
+    parser.add_argument("--sample-rate", type=int, default=None)
+    parser.add_argument("--window-s", type=float, default=None)
+    parser.add_argument("--hop-s", type=float, default=None)
     parser.add_argument("--hist-out", type=Path, default=None, help="Optional CSV path for probability histograms.")
     parser.add_argument("--hist-bins", type=int, default=50)
     parser.add_argument("--allow-heuristics", action="store_true")
     args = parser.parse_args()
 
-    bundle = load_bundle(args.model_path)
+    config = load_config(args.config) if args.config else load_default_config()
+    audio_cfg = get_nested(config, "audio")
+    infer_cfg = get_nested(config, "inference")
+    model_cfg = get_nested(config, "model")
 
-    if args.sample_rate != bundle.config.sample_rate:
+    model_path = args.model_path or get_path(model_cfg, "path", Path("models/baseline.joblib"))
+    bundle = load_bundle(model_path)
+
+    sample_rate = args.sample_rate if args.sample_rate is not None else get_int(audio_cfg, "sample_rate", 16000)
+    window_s = args.window_s if args.window_s is not None else get_float(infer_cfg, "window_s", 4.0)
+    hop_s = args.hop_s if args.hop_s is not None else get_float(infer_cfg, "hop_s", 0.5)
+
+    if sample_rate != bundle.config.sample_rate:
         print(
-            f"Warning: overriding sample_rate {args.sample_rate} -> {bundle.config.sample_rate} to match model config."
+            f"Warning: overriding sample_rate {sample_rate} -> {bundle.config.sample_rate} to match model config."
         )
     window_config = WindowConfig(
         sample_rate=bundle.config.sample_rate,
-        window_s=args.window_s,
-        hop_s=args.hop_s,
+        window_s=window_s,
+        hop_s=hop_s,
         strict_labels=not args.allow_heuristics,
     )
     feature_config = bundle.config

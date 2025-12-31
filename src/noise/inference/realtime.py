@@ -11,7 +11,14 @@ import sounddevice as sd
 
 from noise.audio.buffer import RingBuffer
 from noise.audio.resample import resample_audio
-from noise.config.loader import load_config
+from noise.config.loader import (
+    get_float,
+    get_int,
+    get_nested,
+    get_path,
+    load_config,
+    load_default_config,
+)
 from noise.inference.hysteresis import HysteresisConfig, MultiHysteresis
 from noise.inference.smoother import ProbSmoother, SmoothingConfig
 from noise.model.baseline import LABELS, load_bundle
@@ -19,45 +26,24 @@ from noise.utils.logging import CsvLogger
 from noise.utils.time import local_now_iso
 
 
-def _nested(config: dict, key: str, default: dict | None = None) -> dict:
-    value = config.get(key, default or {})
-    return value if isinstance(value, dict) else default or {}
-
-
-def _float(config: dict, key: str, default: float) -> float:
-    value = config.get(key, default)
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _int(config: dict, key: str, default: int) -> int:
-    value = config.get(key, default)
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
 def _build_hysteresis(config: dict, hop_s: float) -> MultiHysteresis:
-    hyst_cfg = _nested(config, "hysteresis")
+    hyst_cfg = get_nested(config, "hysteresis")
     configs = {}
     for name in LABELS:
-        entry = _nested(hyst_cfg, name)
+        entry = get_nested(hyst_cfg, name)
         configs[name] = HysteresisConfig(
-            t_on=_float(entry, "t_on", 0.7),
-            t_off=_float(entry, "t_off", 0.3),
-            n_on_s=_float(entry, "n_on_s", 4.0),
-            n_off_s=_float(entry, "n_off_s", 8.0),
-            cooldown_s=_float(entry, "cooldown_s", 20.0),
+            t_on=get_float(entry, "t_on", 0.7),
+            t_off=get_float(entry, "t_off", 0.3),
+            n_on_s=get_float(entry, "n_on_s", 4.0),
+            n_off_s=get_float(entry, "n_off_s", 8.0),
+            cooldown_s=get_float(entry, "cooldown_s", 20.0),
         )
     return MultiHysteresis(configs, hop_s=hop_s)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Live inference loop for appliance detection.")
-    parser.add_argument("--model-path", type=Path, default=Path("models/baseline.joblib"))
+    parser.add_argument("--model-path", type=Path, default=None)
     parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--device", type=int, default=None, help="Sounddevice input index")
     parser.add_argument("--input-sr", type=int, default=44100, help="Input device sample rate")
@@ -66,21 +52,23 @@ def main() -> None:
     parser.add_argument("--log-events", type=Path, default=None)
     args = parser.parse_args()
 
-    config = load_config(args.config) if args.config else {}
-    audio_cfg = _nested(config, "audio")
-    infer_cfg = _nested(config, "inference")
-    smooth_cfg = _nested(config, "smoothing")
+    config = load_config(args.config) if args.config else load_default_config()
+    audio_cfg = get_nested(config, "audio")
+    infer_cfg = get_nested(config, "inference")
+    smooth_cfg = get_nested(config, "smoothing")
+    model_cfg = get_nested(config, "model")
 
-    bundle = load_bundle(args.model_path)
+    model_path = args.model_path or get_path(model_cfg, "path", Path("models/baseline.joblib"))
+    bundle = load_bundle(model_path)
     target_sr = bundle.config.sample_rate
-    cfg_sr = _int(audio_cfg, "sample_rate", target_sr)
+    cfg_sr = get_int(audio_cfg, "sample_rate", target_sr)
     if cfg_sr != target_sr:
         print(f"Warning: config sample_rate {cfg_sr} != model sample_rate {target_sr}. Using model value.")
 
-    window_s = _float(infer_cfg, "window_s", 4.0)
-    hop_s = _float(infer_cfg, "hop_s", 0.5)
-    ring_buffer_s = _float(infer_cfg, "ring_buffer_s", 6.0)
-    chunk_s = _float(infer_cfg, "chunk_s", hop_s)
+    window_s = get_float(infer_cfg, "window_s", 4.0)
+    hop_s = get_float(infer_cfg, "hop_s", 0.5)
+    ring_buffer_s = get_float(infer_cfg, "ring_buffer_s", 6.0)
+    chunk_s = get_float(infer_cfg, "chunk_s", hop_s)
 
     if window_s <= 0 or hop_s <= 0 or ring_buffer_s <= 0 or chunk_s <= 0:
         raise ValueError("window_s/hop_s/ring_buffer_s/chunk_s must be > 0")
@@ -95,8 +83,8 @@ def main() -> None:
 
     smoother = ProbSmoother(
         SmoothingConfig(
-            median_N=_int(smooth_cfg, "median_N", 9),
-            ema_tau_s=_float(smooth_cfg, "ema_tau_s", 6.0),
+            median_N=get_int(smooth_cfg, "median_N", 9),
+            ema_tau_s=get_float(smooth_cfg, "ema_tau_s", 6.0),
             hop_s=hop_s,
         )
     )

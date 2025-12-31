@@ -4,6 +4,14 @@ audio:
   win_ms: 25.0
   hop_ms: 10.0
 
+model:
+  type: baseline
+  path: models/baseline.joblib
+
+training:
+  train_split: 0.8
+  seed: 13
+
 inference:
   chunk_s: 1.0
   window_s: 4.0

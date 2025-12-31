@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -32,3 +32,33 @@ def merge_config(base: dict[str, Any], override: dict[str, Any]) -> dict[str, An
         else:
             merged[key] = value
     return merged
+
+
+def get_nested(config: Mapping[str, Any], key: str, default: dict | None = None) -> dict[str, Any]:
+    value = config.get(key, default or {})
+    return value if isinstance(value, dict) else default or {}
+
+
+def get_float(config: Mapping[str, Any], key: str, default: float) -> float:
+    value = config.get(key, default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def get_int(config: Mapping[str, Any], key: str, default: int) -> int:
+    value = config.get(key, default)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def get_path(config: Mapping[str, Any], key: str, default: Path) -> Path:
+    value = config.get(key, default)
+    if isinstance(value, Path):
+        return value
+    if isinstance(value, str):
+        return Path(value)
+    return default

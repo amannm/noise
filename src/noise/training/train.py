@@ -7,6 +7,14 @@ import numpy as np
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
+from noise.config.loader import (
+    get_float,
+    get_int,
+    get_nested,
+    get_path,
+    load_config,
+    load_default_config,
+)
 from noise.model.baseline import (
     LABELS,
     BaselineBundle,
@@ -82,23 +90,37 @@ def _split_files_with_coverage(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train a baseline log-mel + logistic model.")
+    parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--samples-dir", type=Path, default=Path("samples"))
-    parser.add_argument("--model-out", type=Path, default=Path("models/baseline.joblib"))
-    parser.add_argument("--sample-rate", type=int, default=16000)
-    parser.add_argument("--window-s", type=float, default=4.0)
-    parser.add_argument("--hop-s", type=float, default=0.5)
-    parser.add_argument("--train-split", type=float, default=0.8)
-    parser.add_argument("--seed", type=int, default=13)
+    parser.add_argument("--model-out", type=Path, default=None)
+    parser.add_argument("--sample-rate", type=int, default=None)
+    parser.add_argument("--window-s", type=float, default=None)
+    parser.add_argument("--hop-s", type=float, default=None)
+    parser.add_argument("--train-split", type=float, default=None)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--allow-heuristics", action="store_true")
     args = parser.parse_args()
 
+    config = load_config(args.config) if args.config else load_default_config()
+    audio_cfg = get_nested(config, "audio")
+    infer_cfg = get_nested(config, "inference")
+    model_cfg = get_nested(config, "model")
+    train_cfg = get_nested(config, "training")
+
+    sample_rate = args.sample_rate if args.sample_rate is not None else get_int(audio_cfg, "sample_rate", 16000)
+    window_s = args.window_s if args.window_s is not None else get_float(infer_cfg, "window_s", 4.0)
+    hop_s = args.hop_s if args.hop_s is not None else get_float(infer_cfg, "hop_s", 0.5)
+    train_split = args.train_split if args.train_split is not None else get_float(train_cfg, "train_split", 0.8)
+    seed = args.seed if args.seed is not None else get_int(train_cfg, "seed", 13)
+    model_out = args.model_out or get_path(model_cfg, "path", Path("models/baseline.joblib"))
+
     window_config = WindowConfig(
-        sample_rate=args.sample_rate,
-        window_s=args.window_s,
-        hop_s=args.hop_s,
+        sample_rate=sample_rate,
+        window_s=window_s,
+        hop_s=hop_s,
         strict_labels=not args.allow_heuristics,
     )
-    feature_config = BaselineFeatureConfig(sample_rate=args.sample_rate)
+    feature_config = BaselineFeatureConfig(sample_rate=sample_rate)
 
     files = list_wav_files(args.samples_dir)
     if len(files) < 2:
@@ -106,8 +128,8 @@ def main() -> None:
 
     train_files, val_files = _split_files_with_coverage(
         files,
-        train_split=args.train_split,
-        seed=args.seed,
+        train_split=train_split,
+        seed=seed,
         strict_labels=not args.allow_heuristics,
     )
 
@@ -124,12 +146,12 @@ def main() -> None:
     if val_ds is not None:
         x_val, y_val = _build_matrix(val_ds, feature_config)
 
-    estimator = build_estimator(random_state=args.seed)
+    estimator = build_estimator(random_state=seed)
     estimator.fit(x_train, y_train)
 
     bundle = BaselineBundle(config=feature_config, estimator=estimator)
-    save_bundle(bundle, args.model_out)
-    print(f"Saved model to {args.model_out}")
+    save_bundle(bundle, model_out)
+    print(f"Saved model to {model_out}")
 
     train_probs = bundle.predict_proba(x_train)
     _print_metrics("Train", y_train, train_probs)
