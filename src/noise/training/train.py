@@ -106,6 +106,9 @@ def main() -> None:
     infer_cfg = get_nested(config, "inference")
     model_cfg = get_nested(config, "model")
     train_cfg = get_nested(config, "training")
+    model_type = str(model_cfg.get("type", "baseline")).lower()
+    if model_type != "baseline":
+        raise ValueError("Baseline trainer only supports model.type=baseline. Use noise.training.train_beats for BEATs.")
 
     sample_rate = args.sample_rate if args.sample_rate is not None else get_int(audio_cfg, "sample_rate", 16000)
     window_s = args.window_s if args.window_s is not None else get_float(infer_cfg, "window_s", 4.0)

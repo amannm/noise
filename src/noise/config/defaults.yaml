@@ -7,6 +7,20 @@ audio:
 model:
   type: baseline
   path: models/baseline.joblib
+  beats:
+    checkpoint_path: models/BEATs_iter3_plus_AS2M.pt
+    head_path: models/beats_head.pt
+    target_sr: 16000
+    device: cpu
+    head:
+      input_dim: 768
+      hidden_dim: 256
+      conv_channels: 128
+      kernel_size: 3
+      num_layers: 1
+      dropout: 0.1
+      bidirectional: true
+      num_outputs: 2
 
 training:
   train_split: 0.8

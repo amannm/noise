@@ -15,13 +15,13 @@ from noise.config.loader import (
     get_float,
     get_int,
     get_nested,
-    get_path,
     load_config,
     load_default_config,
 )
 from noise.inference.hysteresis import HysteresisConfig, MultiHysteresis
 from noise.inference.smoother import ProbSmoother, SmoothingConfig
-from noise.model.baseline import LABELS, load_bundle
+from noise.model.baseline import LABELS
+from noise.model.loader import load_inference_model
 from noise.utils.logging import CsvLogger
 from noise.utils.time import local_now_iso
 
@@ -43,7 +43,7 @@ def _build_hysteresis(config: dict, hop_s: float) -> MultiHysteresis:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Live inference loop for appliance detection.")
-    parser.add_argument("--model-path", type=Path, default=None)
+    parser.add_argument("--model-path", type=Path, default=None, help="Overrides baseline model or BEATs head path.")
     parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--device", type=int, default=None, help="Sounddevice input index")
     parser.add_argument("--input-sr", type=int, default=44100, help="Input device sample rate")
@@ -56,11 +56,9 @@ def main() -> None:
     audio_cfg = get_nested(config, "audio")
     infer_cfg = get_nested(config, "inference")
     smooth_cfg = get_nested(config, "smoothing")
-    model_cfg = get_nested(config, "model")
 
-    model_path = args.model_path or get_path(model_cfg, "path", Path("models/baseline.joblib"))
-    bundle = load_bundle(model_path)
-    target_sr = bundle.config.sample_rate
+    bundle = load_inference_model(config, model_path=args.model_path)
+    target_sr = bundle.sample_rate
     cfg_sr = get_int(audio_cfg, "sample_rate", target_sr)
     if cfg_sr != target_sr:
         print(f"Warning: config sample_rate {cfg_sr} != model sample_rate {target_sr}. Using model value.")

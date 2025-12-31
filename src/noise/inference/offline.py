@@ -12,13 +12,13 @@ from noise.config.loader import (
     get_float,
     get_int,
     get_nested,
-    get_path,
     load_config,
     load_default_config,
 )
 from noise.inference.hysteresis import HysteresisConfig, MultiHysteresis
 from noise.inference.smoother import ProbSmoother, SmoothingConfig
-from noise.model.baseline import LABELS, load_bundle
+from noise.model.baseline import LABELS
+from noise.model.loader import load_inference_model
 from noise.training.dataset import label_from_path, list_wav_files
 from noise.utils.logging import CsvLogger
 
@@ -68,7 +68,7 @@ def _initial_state(mode: str, label: tuple[int, int]) -> dict[str, bool]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Offline steady-state inference + event checks.")
     parser.add_argument("--samples-dir", type=Path, default=Path("samples"))
-    parser.add_argument("--model-path", type=Path, default=None)
+    parser.add_argument("--model-path", type=Path, default=None, help="Overrides baseline model or BEATs head path.")
     parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--window-s", type=float, default=None)
     parser.add_argument("--hop-s", type=float, default=None)
@@ -85,11 +85,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config) if args.config else load_default_config()
-    model_cfg = get_nested(config, "model")
-    model_path = args.model_path or get_path(model_cfg, "path", Path("models/baseline.joblib"))
-
-    bundle = load_bundle(model_path)
-    target_sr = bundle.config.sample_rate
+    bundle = load_inference_model(config, model_path=args.model_path)
+    target_sr = bundle.sample_rate
 
     infer_cfg = get_nested(config, "inference")
     smooth_cfg = get_nested(config, "smoothing")

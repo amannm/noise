@@ -13,7 +13,14 @@ This plan operationalizes `SPEC.md` into a buildable system. It is organized by 
 
 ---
 
-## 1) Project Structure (Proposed)
+## Progress Update (Dec 31, 2025)
+- **Baseline pipeline complete:** windowing + log-mel + logistic baseline, offline eval, smoothing/hysteresis, and live loop are implemented.
+- **Calibration shipped:** steady-state threshold calibration produces config overrides.
+- **Remaining for BEATs-first:** BEATs encoder + temporal head integration and optional ONNX/CoreML acceleration.
+
+---
+
+## 1) Project Structure (Current + Planned)
 ```
 noise/
   PLAN.md
@@ -23,17 +30,19 @@ noise/
   src/
     noise/
       audio/
-        capture.py            # live mic ingest
+        capture.py            # live mic ingest (planned; realtime loop uses sounddevice directly)
         resample.py           # 44.1k -> 16k
         buffer.py             # ring buffer
         featurize.py          # log-mel frontend
       model/
-        beats.py              # BEATs wrapper
-        head.py               # temporal head
-        pipeline.py           # end-to-end forward
+        baseline.py           # log-mel + logistic regression bundle (current)
+        beats.py              # BEATs wrapper (planned)
+        head.py               # temporal head (planned)
+        pipeline.py           # end-to-end forward (planned)
       inference/
         smoother.py           # median + EMA
         hysteresis.py         # state machine
+        offline.py            # offline steady-state checks
         realtime.py           # live loop
       training/
         dataset.py            # windowing + labels
@@ -42,15 +51,23 @@ noise/
         calibrate.py          # threshold calibration
       config/
         defaults.yaml         # all params
+        loader.py             # config helpers
       utils/
         logging.py            # event/prob logging
         time.py               # timestamp helpers
   scripts/
     run_train.sh
+    run_eval.sh
+    run_calibrate.sh
+    run_dataset_summary.sh
     run_realtime.sh
   tests/
     test_hysteresis.py
     test_smoothing.py
+    test_resample.py
+    test_featurize.py
+    test_dataset.py
+    test_ring_buffer.py
 ```
 Notes:
 - Use `uv` for all script entrypoints.
@@ -60,20 +77,20 @@ Notes:
 
 ## 2) Iteration Plan (High-Level)
 
-### Iteration 1: Baseline presence model + offline sanity checks
+### Iteration 1: Baseline presence model + offline sanity checks (DONE)
 Goal: produce stable probability streams per device from steady-state WAVs.
 
-### Iteration 2: Event detection (smoothing + hysteresis)
+### Iteration 2: Event detection (smoothing + hysteresis) (DONE)
 Goal: clean on/off events on steady-state files (no false transitions).
 
-### Iteration 3: Live inference loop
+### Iteration 3: Live inference loop (DONE)
 Goal: real-time probabilities + events from microphone input.
 
-### Iteration 4: Calibration + tuning
+### Iteration 4: Calibration + tuning (DONE)
 Goal: auto-thresholds from steady-state clips; reduced manual tuning.
 
-### Iteration 5: Optimization + deployment
-Goal: ONNX / CoreML acceleration, stable CPU usage.
+### Iteration 5: BEATs integration + optimization (NEXT)
+Goal: BEATs encoder + temporal head, optional ONNX/CoreML acceleration, stable CPU usage.
 
 ---
 
@@ -233,15 +250,15 @@ Deliverable:
 ---
 
 ## 7) Milestones & Deliverables
-1. **M1: Offline baseline**
+1. **M1: Offline baseline** (DONE)
    - Training + evaluation from steady-state clips.
-2. **M2: Event logic**
+2. **M2: Event logic** (DONE)
    - Smoothing + hysteresis tests, no false transitions offline.
-3. **M3: Live loop**
+3. **M3: Live loop** (DONE)
    - Real-time stream + logs.
-4. **M4: Calibration**
+4. **M4: Calibration** (DONE)
    - Auto thresholds persisted.
-5. **M5: Optimization**
+5. **M5: Optimization** (PENDING)
    - ONNX/CoreML inference; latency benchmarked.
 
 ---
@@ -255,9 +272,7 @@ Deliverable:
 ---
 
 ## 9) Immediate Next Actions
-1. Implement dataset + windowing from `samples/`.
-2. Create log-mel frontend + BEATs wrapper.
-3. Train head-only baseline and evaluate.
-4. Add smoothing + hysteresis with unit tests.
-5. Build live inference loop and confirm end-to-end.
-
+1. Add BEATs encoder wrapper + temporal head (keep baseline path as fallback).
+2. Add BEATs training loop (freeze encoder, train head).
+3. Add BEATs eval + calibration parity with baseline scripts.
+4. Benchmark latency; consider ONNX/CoreML export.

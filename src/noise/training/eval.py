@@ -11,11 +11,11 @@ from noise.config.loader import (
     get_float,
     get_int,
     get_nested,
-    get_path,
     load_config,
     load_default_config,
 )
-from noise.model.baseline import LABELS, BaselineFeatureConfig, extract_features, load_bundle
+from noise.model.baseline import LABELS, BaselineBundle, BaselineFeatureConfig, extract_features
+from noise.model.loader import load_inference_model
 from noise.training.dataset import WindowConfig, WindowedWavDataset, list_wav_files
 
 
@@ -30,11 +30,22 @@ def _build_matrix(dataset: WindowedWavDataset, feature_config: BaselineFeatureCo
     return np.stack(features, axis=0), np.stack(labels, axis=0)
 
 
+def _predict_probs(dataset: WindowedWavDataset, bundle) -> tuple[np.ndarray, np.ndarray]:
+    probs = []
+    labels = []
+    for audio, label, _ in dataset:
+        probs.append(bundle.predict_proba_from_audio(audio))
+        labels.append(label)
+    if not probs:
+        return np.zeros((0, len(LABELS)), dtype=np.float32), np.zeros((0, len(LABELS)))
+    return np.stack(probs, axis=0), np.stack(labels, axis=0)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a baseline model on steady-state clips.")
     parser.add_argument("--config", type=Path, default=Path("src/noise/config/defaults.yaml"))
     parser.add_argument("--samples-dir", type=Path, default=Path("samples"))
-    parser.add_argument("--model-path", type=Path, default=None)
+    parser.add_argument("--model-path", type=Path, default=None, help="Overrides baseline model or BEATs head path.")
     parser.add_argument("--sample-rate", type=int, default=None)
     parser.add_argument("--window-s", type=float, default=None)
     parser.add_argument("--hop-s", type=float, default=None)
@@ -46,31 +57,30 @@ def main() -> None:
     config = load_config(args.config) if args.config else load_default_config()
     audio_cfg = get_nested(config, "audio")
     infer_cfg = get_nested(config, "inference")
-    model_cfg = get_nested(config, "model")
 
-    model_path = args.model_path or get_path(model_cfg, "path", Path("models/baseline.joblib"))
-    bundle = load_bundle(model_path)
+    bundle = load_inference_model(config, model_path=args.model_path)
 
     sample_rate = args.sample_rate if args.sample_rate is not None else get_int(audio_cfg, "sample_rate", 16000)
     window_s = args.window_s if args.window_s is not None else get_float(infer_cfg, "window_s", 4.0)
     hop_s = args.hop_s if args.hop_s is not None else get_float(infer_cfg, "hop_s", 0.5)
 
-    if sample_rate != bundle.config.sample_rate:
-        print(
-            f"Warning: overriding sample_rate {sample_rate} -> {bundle.config.sample_rate} to match model config."
-        )
+    if sample_rate != bundle.sample_rate:
+        print(f"Warning: overriding sample_rate {sample_rate} -> {bundle.sample_rate} to match model config.")
     window_config = WindowConfig(
-        sample_rate=bundle.config.sample_rate,
+        sample_rate=bundle.sample_rate,
         window_s=window_s,
         hop_s=hop_s,
         strict_labels=not args.allow_heuristics,
     )
-    feature_config = bundle.config
+    feature_config = bundle.config if isinstance(bundle, BaselineBundle) else None
 
     files = list_wav_files(args.samples_dir)
     dataset = WindowedWavDataset(args.samples_dir, window_config, files=files)
-    x, y = _build_matrix(dataset, feature_config)
-    probs = bundle.predict_proba(x)
+    if isinstance(bundle, BaselineBundle):
+        x, y = _build_matrix(dataset, feature_config)
+        probs = bundle.predict_proba(x)
+    else:
+        probs, y = _predict_probs(dataset, bundle)
 
     print(f"Evaluated {len(files)} files / {len(dataset)} windows")
     for idx, label in enumerate(LABELS):

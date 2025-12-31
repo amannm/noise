@@ -33,6 +33,10 @@ class BaselineBundle:
     config: BaselineFeatureConfig
     estimator: Pipeline
 
+    @property
+    def sample_rate(self) -> int:
+        return self.config.sample_rate
+
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
         probs = self.estimator.predict_proba(features)
         if isinstance(probs, list):
