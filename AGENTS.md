@@ -9,7 +9,7 @@
 [BEATs Source Code](reference/unilm/beats)
 
 # Environment
-- Always use `uv` for executing Python scripts.
+- **Always** use `uv` for working with Python.
 - `./samples` contains steady-state, ~3-minute `.m4a` recordings for several states, all recorded at 44.1k Hz from a fixed position in the apartment
 
 # Additional constraints

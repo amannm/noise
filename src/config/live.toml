@@ -1,0 +1,11 @@
+# Live inference defaults
+input_sr = 44100
+window_sec = 6.0
+hop_sec = 1.5
+agg_window_n = 7
+ac_on = 0.80
+ac_off = 0.60
+fr_on = 0.75
+fr_off = 0.55
+debounce_k = 2
+sd_device = ""
