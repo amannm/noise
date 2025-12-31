@@ -7,5 +7,7 @@ set -eu
 #ffmpeg -i all_off.m4a -ac 1 -ar 16000 all_off.wav
 
 #uv run train_ac_detector.py --on_wav ac_on.wav --off_wav all_off.wav
+#uv run train_fridge_detector.py --on_wav fridge_on.wav --off_wav all_off.wav
 
-uv run detect_ac_live.py
+#uv run detect_ac_live.py
+#uv run detect_fridge_live.py
