@@ -23,37 +23,41 @@ noise/
   src/
     noise/
       audio/
-        capture.py            # live mic ingest (planned; realtime loop uses sounddevice directly)
-        resample.py           # 44.1k -> 16k
-        buffer.py             # ring buffer
-        featurize.py          # log-mel frontend
+        capture.py            # live mic ingest
+        resample.py           # 44.1k -> 16k (implemented)
+        buffer.py             # ring buffer (implemented)
+        featurize.py          # log-mel frontend (implemented)
       model/
-        baseline.py           # log-mel + logistic regression bundle (current)
-        beats.py              # BEATs wrapper (planned)
-        head.py               # temporal head (planned)
-        pipeline.py           # end-to-end forward (planned)
+        baseline.py           # log-mel + logistic regression bundle (implemented)
+        beats.py              # BEATs wrapper (implemented)
+        head.py               # temporal head (implemented)
+        pipeline.py           # end-to-end forward (implemented)
       inference/
-        smoother.py           # median + EMA
-        hysteresis.py         # state machine
-        offline.py            # offline steady-state checks
-        realtime.py           # live loop
+        smoother.py           # median + EMA (implemented)
+        hysteresis.py         # state machine (implemented)
+        offline.py            # offline steady-state checks (implemented)
+        realtime.py           # live loop (implemented)
       training/
-        dataset.py            # windowing + labels
-        train.py              # training loop
-        eval.py               # offline metrics
-        calibrate.py          # threshold calibration
+        dataset.py            # windowing + labels (implemented)
+        train.py              # training loop (baseline, implemented)
+        train_beats.py         # BEATs head training (implemented)
+        eval.py               # offline metrics (implemented)
+        calibrate.py          # threshold calibration (implemented)
       config/
-        defaults.yaml         # all params
-        loader.py             # config helpers
+        defaults.yaml         # all params (implemented)
+        loader.py             # config helpers (implemented)
       utils/
-        logging.py            # event/prob logging
-        time.py               # timestamp helpers
+        logging.py            # event/prob logging (implemented)
+        time.py               # timestamp helpers (implemented)
   scripts/
     run_train.sh
+    run_train_beats.sh
     run_eval.sh
     run_calibrate.sh
     run_dataset_summary.sh
+    run_offline.sh
     run_realtime.sh
+    run_export_coreml.sh
   tests/
     test_hysteresis.py
     test_smoothing.py
