@@ -142,8 +142,7 @@ def detect(args):
 
 
 def record(args):
-    info = APPLIANCES[args.appliance]
-    out = args.out or info["on_wav"]
+    out = args.out or f"recordings/{args.appliance}_on.wav"
     sr = args.sr
     frames = int(args.seconds * sr)
     print(f"Recording {args.seconds:.0f}s to {out}...")
