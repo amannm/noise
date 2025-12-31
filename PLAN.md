@@ -23,7 +23,7 @@ noise/
   src/
     noise/
       audio/
-        capture.py            # live mic ingest
+        capture.py            # live mic ingest (implemented)
         resample.py           # 44.1k -> 16k (implemented)
         buffer.py             # ring buffer (implemented)
         featurize.py          # log-mel frontend (implemented)

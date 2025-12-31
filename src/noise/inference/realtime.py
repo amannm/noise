@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import queue
 import sys
 import time
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
 
+from noise.audio.capture import AudioCapture, CaptureConfig
 from noise.audio.buffer import RingBuffer
 from noise.audio.resample import resample_audio
 from noise.config.loader import (
@@ -110,30 +109,25 @@ def main() -> None:
             ["timestamp", "device", "kind", "prob", "step"],
         ).open()
 
-    audio_queue: queue.Queue[np.ndarray] = queue.Queue()
-
-    def _callback(indata: np.ndarray, frames: int, time_info, status) -> None:
-        if status:
-            print(f"Sounddevice status: {status}", file=sys.stderr)
-        audio_queue.put(indata.copy())
-
-    stream = sd.InputStream(
-        samplerate=args.input_sr,
-        channels=1,
-        dtype="float32",
-        blocksize=chunk_len,
-        device=args.device,
-        callback=_callback,
+    capture = AudioCapture(
+        CaptureConfig(
+            sample_rate=args.input_sr,
+            chunk_size=chunk_len,
+            device=args.device,
+            channels=1,
+            dtype="float32",
+        ),
+        status_handler=lambda msg: print(f"Sounddevice status: {msg}", file=sys.stderr),
     )
 
     start_time = time.time()
     try:
-        with stream:
+        with capture:
             print("Streaming... Press Ctrl+C to stop.")
             while True:
                 if args.duration_s is not None and (time.time() - start_time) >= args.duration_s:
                     break
-                block = audio_queue.get()
+                block = capture.read()
                 block = block.reshape(-1)
                 if args.input_sr != target_sr:
                     block = resample_audio(block, orig_sr=args.input_sr, target_sr=target_sr)
