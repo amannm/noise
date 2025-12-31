@@ -16,7 +16,8 @@ This plan operationalizes `SPEC.md` into a buildable system. It is organized by 
 ## Progress Update (Dec 31, 2025)
 - **Baseline pipeline complete:** windowing + log-mel + logistic baseline, offline eval, smoothing/hysteresis, and live loop are implemented.
 - **Calibration shipped:** steady-state threshold calibration produces config overrides.
-- **Remaining for BEATs-first:** BEATs encoder + temporal head integration and optional ONNX/CoreML acceleration.
+- **CoreML export utility added:** head or ONNX -> Core ML package for experimentation.
+- **Remaining for BEATs-first:** end-to-end BEATs validation in realtime loop + acceleration benchmarking.
 
 ---
 
@@ -197,11 +198,12 @@ Deliverables:
 
 ### H) Optimization + Deployment
 1. **ONNX export** for head + BEATs (if feasible).
-2. **onnxruntime** with CoreML EP (Apple accel).
-3. **Benchmark** CPU usage and latency.
+2. **Core ML export** via coremltools (head or ONNX conversion).
+3. **onnxruntime** with CoreML EP (Apple accel).
+4. **Benchmark** CPU usage and latency.
 
 Deliverables:
-- `model/export_onnx.py` + benchmark script.
+- `model/export_onnx.py`, `model/export_coreml.py` + benchmark script.
 
 ---
 
@@ -258,8 +260,8 @@ Deliverable:
    - Real-time stream + logs.
 4. **M4: Calibration** (DONE)
    - Auto thresholds persisted.
-5. **M5: Optimization** (PENDING)
-   - ONNX/CoreML inference; latency benchmarked.
+5. **M5: Optimization** (IN PROGRESS)
+   - ONNX/CoreML export tools; latency benchmark pending.
 
 ---
 
