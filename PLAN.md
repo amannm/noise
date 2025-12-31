@@ -1,6 +1,6 @@
 # PLAN: Apartment Noise State Classifier (AC / Fridge / Neither)
 
-This plan translates `SPEC.md` into an implementable, end‑to‑end system: data prep → training → evaluation → batch + streaming inference. It assumes a fixed apartment/mic and uses BEATs preprocessing and encoder exactly as specified.
+This plan translates `SPEC.md` into an implementable, end‑to‑end system: data prep → training → evaluation → batch + streaming + live inference. It assumes a fixed apartment/mic and uses BEATs preprocessing and encoder exactly as specified.
 
 ---
 
@@ -13,9 +13,10 @@ This plan translates `SPEC.md` into an implementable, end‑to‑end system: dat
 
 ---
 
-## 1) Repository Layout (proposed)
+## 1) Repository Layout (current + planned)
 ```
 ./
+  TRAINING.md
   PLAN.md
   SPEC.md
   samples/                # raw .m4a inputs
@@ -28,13 +29,11 @@ This plan translates `SPEC.md` into an implementable, end‑to‑end system: dat
     cache/                 # optional cached fbank or waveform
   src/
     config/
-      defaults.yaml
-      labels.yaml          # mapping from filename -> labels + meta
       thresholds.yaml
+      live.toml            # live inference defaults
     datasets/
       window_dataset.py
       augment.py
-      outliers.py
     beats/
       preprocess.py        # wrapper around BEATs preprocessing
       model.py             # BEATs encoder wrapper + pooling + head
@@ -46,14 +45,13 @@ This plan translates `SPEC.md` into an implementable, end‑to‑end system: dat
       batch.py
       stream.py
       hysteresis.py
+      live.py
     utils/
       audio.py
-      metrics.py
-      io.py
   scripts/
     prepare_manifests.py
     build_windows.py
-    sanity_check.py
+    list_devices.py
 ```
 
 Notes:
@@ -185,7 +183,7 @@ Loss: `BCEWithLogitsLoss` with `pos_weight` if imbalanced.
 ### 7.4 Evaluation & logging
 - Aggregate window predictions by file using **median**.
 - Report F1 for `ac`, F1 for `fridge`, and 3‑state accuracy.
-- Save logs to `models/<run_id>/metrics.json` and training config snapshot.
+- Save logs to `models/<run_id>/metrics.jsonl`, `best_metrics.json`, and `train_config.json`.
 
 ---
 
@@ -195,7 +193,7 @@ Loss: `BCEWithLogitsLoss` with `pos_weight` if imbalanced.
 ### 8.1 Validation thresholding
 - Choose `t_ac`, `t_fr` maximizing validation F1 (grid search on val set).
 - Defaults: `t_ac=0.75`, `t_fr=0.70`.
-- Save to `src/config/thresholds.yaml` and `models/<run_id>/thresholds.yaml`.
+- Save to `src/config/thresholds.yaml`.
 
 ### 8.2 Streaming hysteresis
 - AC: `t_on=0.80`, `t_off=0.60`
@@ -223,19 +221,28 @@ Pipeline:
 - Compute medians, apply hysteresis per label.
 - Derive 3‑state output with debounce (K=2).
 
+### 9.3 Live inference (`src/infer/live.py`)
+- Live mic input with `sounddevice`.
+- Device discovery via `--list-devices` / `--list-devices-json`.
+- Optional JSONL logging (`--log-jsonl`) and dry‑run replay of files/dirs (`--dry-run`).
+- `src/config/live.toml` provides defaults; CLI flags override.
+
 ---
 
 ## 10) Configuration & CLI
-- Central config in `src/config/defaults.yaml`.
-- CLI entrypoints (Typer or argparse):
-  - `prepare-manifests` (build `files.csv`)
-  - `build-windows` (window index + outlier removal)
-  - `train` (stage1/2)
-  - `eval` (file‑level metrics)
-  - `infer-batch` (JSON output)
-  - `infer-stream` (live mic)
-- All scripts run via `uv`:
-  - `uv run python src/train/train.py --config ...`
+- Config files:
+  - `src/config/thresholds.yaml` (validation thresholds)
+  - `src/config/live.toml` (live inference defaults)
+- CLI entrypoints are plain Python scripts (argparse):
+  - `scripts/prepare_manifests.py`
+  - `scripts/build_windows.py`
+  - `scripts/list_devices.py`
+  - `src/train/train.py`
+  - `src/train/thresholds.py`
+  - `src/infer/batch.py`
+  - `src/infer/stream.py`
+  - `src/infer/live.py`
+- All scripts run via `uv` (see `TRAINING.md` for the canonical sequence).
 
 ---
 
@@ -248,12 +255,16 @@ Pipeline:
   - Threshold + hysteresis logic.
 - Integration test:
   - Train stage 1 for 1 epoch on small subset, run batch inference.
+- Quality checks (file-level):
+  - Cross‑split (day vs night) F1 stability.
+  - Threshold sensitivity on validation grid.
+  - Spot‑check JSON outputs on known files.
 
 ---
 
 ## 12) Milestones & Deliverables
 1. **Data manifest + label mapping**
-   - `data/manifests/files.csv`, `src/config/labels.yaml`.
+   - `data/manifests/files.csv` (filename parsing or optional label map).
 2. **Window index + outlier removal**
    - `data/manifests/windows.parquet`.
 3. **BEATs preprocessing wrapper + dataset**
@@ -262,9 +273,11 @@ Pipeline:
    - `src/beats/model.py`, `src/train/train.py`, `src/train/eval.py`.
 5. **Threshold selection + configs**
    - `src/train/thresholds.py`, `src/config/thresholds.yaml`.
-6. **Batch + streaming inference**
-   - `src/infer/batch.py`, `src/infer/stream.py`.
-7. **Acceptance validation**
+6. **Batch + streaming + live inference**
+   - `src/infer/batch.py`, `src/infer/stream.py`, `src/infer/live.py`.
+7. **Ops helpers**
+   - `scripts/list_devices.py`, `TRAINING.md`.
+8. **Acceptance validation**
    - Metrics report + demo JSON outputs.
 
 ---
@@ -278,8 +291,7 @@ Pipeline:
 ---
 
 ## 14) Immediate Next Actions (for implementation)
-1. Create `labels.yaml` (if filenames don’t encode labels).
-2. Write `prepare_manifests.py` to build `files.csv`.
-3. Implement windowing + outlier removal and write `windows.parquet`.
-4. Wrap BEATs preprocessing from `reference/unilm/beats`.
-5. Build dataset + augmentations, then stage‑1 training.
+1. Run the training sequence in `TRAINING.md`.
+2. Review `best_metrics.json` and compare day/night splits.
+3. Generate `thresholds.yaml`, then validate with batch inference.
+4. Dry‑run live inference on `samples/` before using a mic.
