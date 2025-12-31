@@ -20,7 +20,9 @@ from noise.model.baseline import LABELS
 from noise.model.beats import BeatsConfig, encode_audio, load_beats_encoder
 from noise.model.head import TemporalHeadConfig, build_temporal_head
 from noise.model.pipeline import save_head_checkpoint
+from noise.training.augment import AudioAugmenter, augment_config_from_dict, build_noise_pool
 from noise.training.dataset import WindowConfig, WindowedWavDataset, label_from_path, list_wav_files
+from noise.training.splits import split_config_from_dict
 
 
 def _require_torch():
@@ -128,7 +130,9 @@ def main() -> None:
     parser.add_argument("--hop-s", type=float, default=None)
     parser.add_argument("--train-split", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--split-mode", type=str, default=None, choices=("ranges", "files", "windows"))
     parser.add_argument("--allow-heuristics", action="store_true")
+    parser.add_argument("--no-augment", action="store_true", help="Disable audio augmentation for training.")
     parser.add_argument(
         "--window-split",
         action="store_true",
@@ -154,6 +158,13 @@ def main() -> None:
     hop_s = args.hop_s if args.hop_s is not None else get_float(infer_cfg, "hop_s", 0.5)
     train_split = args.train_split if args.train_split is not None else get_float(train_cfg, "train_split", 0.8)
     seed = args.seed if args.seed is not None else get_int(train_cfg, "seed", 13)
+    split_mode = args.split_mode or str(train_cfg.get("split_mode", "ranges")).lower()
+    if args.window_split:
+        split_mode = "windows"
+    split_cfg = split_config_from_dict(get_nested(config, "splits"))
+    augment_cfg = augment_config_from_dict(get_nested(train_cfg, "augment"))
+    if args.no_augment:
+        augment_cfg = replace(augment_cfg, enabled=False)
 
     cfg_sr = get_int(audio_cfg, "sample_rate", target_sr)
     if cfg_sr != target_sr:
@@ -175,7 +186,7 @@ def main() -> None:
     train_indices = None
     val_indices = None
 
-    if args.window_split:
+    if split_mode == "windows":
         dataset = WindowedWavDataset(args.samples_dir, window_config, files=files)
         indices = np.arange(len(dataset))
         if train_split >= 1.0:
@@ -194,7 +205,7 @@ def main() -> None:
         print(f"Train windows: {len(train_indices)}")
         if val_indices.size > 0:
             print(f"Val windows: {len(val_indices)}")
-    else:
+    elif split_mode == "files":
         if len(files) < 2:
             raise ValueError("Need at least 2 WAV files for train/val split")
 
@@ -212,6 +223,51 @@ def main() -> None:
         print(f"Train windows: {len(train_ds)}")
         if val_ds is not None:
             print(f"Val windows: {len(val_ds)}")
+    elif split_mode == "ranges":
+        train_config = WindowConfig(
+            sample_rate=target_sr,
+            window_s=window_s,
+            hop_s=hop_s,
+            strict_labels=not args.allow_heuristics,
+            split="train",
+            split_config=split_cfg,
+        )
+        val_config = WindowConfig(
+            sample_rate=target_sr,
+            window_s=window_s,
+            hop_s=hop_s,
+            strict_labels=not args.allow_heuristics,
+            split="val",
+            split_config=split_cfg,
+        )
+
+        train_ds = WindowedWavDataset(args.samples_dir, train_config, files=files)
+        val_ds = WindowedWavDataset(args.samples_dir, val_config, files=files)
+        if len(val_ds) == 0:
+            val_ds = None
+        print("Split mode: ranges (per-file time splits)")
+        print(f"Train windows: {len(train_ds)}")
+        if val_ds is not None:
+            print(f"Val windows: {len(val_ds)}")
+    else:
+        raise ValueError(f"Unknown split mode: {split_mode}")
+
+    augmenter = None
+    if augment_cfg.enabled:
+        noise_pool = None
+        if augment_cfg.p_noise > 0:
+            noise_pool = build_noise_pool(
+                args.samples_dir,
+                split_config=split_cfg if split_mode == "ranges" else None,
+                sample_rate=target_sr,
+                strict_labels=not args.allow_heuristics,
+            )
+        augmenter = AudioAugmenter(
+            augment_cfg,
+            sample_rate=target_sr,
+            noise_pool=noise_pool,
+            seed=seed,
+        )
 
     torch = _require_torch()
     beats_config = BeatsConfig(checkpoint_path=checkpoint_path, target_sr=target_sr, device=device)
@@ -233,6 +289,8 @@ def main() -> None:
             head.train()
         losses = []
         for batch_audio, batch_labels in _iter_batches(train_ds, args.batch_size, train_indices):
+            if augmenter is not None:
+                batch_audio = augmenter(batch_audio)
             with torch.no_grad():
                 tokens = encode_audio(encoder, batch_audio, sample_rate=target_sr)
                 tokens = _ensure_btd(tokens, input_dim=head_cfg.input_dim if head_cfg else None)

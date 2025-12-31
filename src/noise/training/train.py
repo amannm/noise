@@ -24,6 +24,7 @@ from noise.model.baseline import (
     save_bundle,
 )
 from noise.training.dataset import WindowConfig, WindowedWavDataset, label_from_path, list_wav_files
+from noise.training.splits import split_config_from_dict
 
 
 def _build_matrix(dataset: WindowedWavDataset, feature_config: BaselineFeatureConfig) -> tuple[np.ndarray, np.ndarray]:
@@ -98,6 +99,7 @@ def main() -> None:
     parser.add_argument("--hop-s", type=float, default=None)
     parser.add_argument("--train-split", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--split-mode", type=str, default=None, choices=("ranges", "files", "windows"))
     parser.add_argument("--allow-heuristics", action="store_true")
     parser.add_argument(
         "--window-split",
@@ -120,6 +122,10 @@ def main() -> None:
     hop_s = args.hop_s if args.hop_s is not None else get_float(infer_cfg, "hop_s", 0.5)
     train_split = args.train_split if args.train_split is not None else get_float(train_cfg, "train_split", 0.8)
     seed = args.seed if args.seed is not None else get_int(train_cfg, "seed", 13)
+    split_mode = args.split_mode or str(train_cfg.get("split_mode", "ranges")).lower()
+    if args.window_split:
+        split_mode = "windows"
+    split_cfg = split_config_from_dict(get_nested(config, "splits"))
     model_out = args.model_out or get_path(model_cfg, "path", Path("models/baseline.joblib"))
 
     window_config = WindowConfig(
@@ -134,7 +140,7 @@ def main() -> None:
     if not files:
         raise ValueError("No WAV files found for training.")
 
-    if args.window_split:
+    if split_mode == "windows":
         dataset = WindowedWavDataset(args.samples_dir, window_config, files=files)
         x_all, y_all = _build_matrix(dataset, feature_config)
         if x_all.shape[0] == 0:
@@ -154,7 +160,7 @@ def main() -> None:
         print(f"Train windows: {len(x_train)}")
         if x_val is not None:
             print(f"Val windows: {len(x_val)}")
-    else:
+    elif split_mode == "files":
         if len(files) < 2:
             raise ValueError("Need at least 2 WAV files for train/val split")
 
@@ -177,6 +183,37 @@ def main() -> None:
         x_val, y_val = (None, None)
         if val_ds is not None:
             x_val, y_val = _build_matrix(val_ds, feature_config)
+    elif split_mode == "ranges":
+        train_config = WindowConfig(
+            sample_rate=sample_rate,
+            window_s=window_s,
+            hop_s=hop_s,
+            strict_labels=not args.allow_heuristics,
+            split="train",
+            split_config=split_cfg,
+        )
+        val_config = WindowConfig(
+            sample_rate=sample_rate,
+            window_s=window_s,
+            hop_s=hop_s,
+            strict_labels=not args.allow_heuristics,
+            split="val",
+            split_config=split_cfg,
+        )
+        train_ds = WindowedWavDataset(args.samples_dir, train_config, files=files)
+        val_ds = WindowedWavDataset(args.samples_dir, val_config, files=files)
+        if len(val_ds) == 0:
+            val_ds = None
+        print("Split mode: ranges (per-file time splits)")
+        print(f"Train windows: {len(train_ds)}")
+        if val_ds is not None:
+            print(f"Val windows: {len(val_ds)}")
+        x_train, y_train = _build_matrix(train_ds, feature_config)
+        x_val, y_val = (None, None)
+        if val_ds is not None:
+            x_val, y_val = _build_matrix(val_ds, feature_config)
+    else:
+        raise ValueError(f"Unknown split mode: {split_mode}")
 
     estimator = build_estimator(random_state=seed)
     estimator.fit(x_train, y_train)

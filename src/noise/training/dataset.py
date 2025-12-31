@@ -9,6 +9,7 @@ import numpy as np
 import soundfile as sf
 
 from noise.audio.resample import resample_audio
+from noise.training.splits import SplitConfig, compute_split_ranges
 
 LABEL_MAP: dict[str, tuple[int, int]] = {
     "ac_on": (1, 0),
@@ -24,6 +25,8 @@ class WindowConfig:
     window_s: float = 4.0
     hop_s: float = 0.5
     strict_labels: bool = True
+    split: str | None = None
+    split_config: SplitConfig | None = None
 
     def window_len(self) -> int:
         return int(round(self.sample_rate * self.window_s))
@@ -80,8 +83,10 @@ class WindowedWavDataset:
             label = _label_from_path(path, strict=self.config.strict_labels)
             audio, _ = _load_audio(path, target_sr=self.config.sample_rate)
             self._audio_cache[path] = audio
-            for start in _window_indices(len(audio), window_len, hop_len):
-                self._index.append(WindowRef(path, start, label))
+            ranges = _ranges_for_audio(len(audio), self.config)
+            for start_idx, end_idx in ranges:
+                for start in _window_indices_range(start_idx, end_idx, window_len, hop_len):
+                    self._index.append(WindowRef(path, start, label))
 
 
 @dataclass(frozen=True)
@@ -104,7 +109,11 @@ def summarize_dataset(samples_dir: Path, config: WindowConfig) -> DatasetSummary
     for path in files:
         label = _label_from_path(path, strict=config.strict_labels)
         audio, sr = _load_audio(path, target_sr=config.sample_rate)
-        n_windows = _count_windows(len(audio), window_len, hop_len)
+        ranges = _ranges_for_audio(len(audio), config)
+        n_windows = sum(
+            _count_windows_range(start_idx, end_idx, window_len, hop_len)
+            for start_idx, end_idx in ranges
+        )
         total_windows += n_windows
 
         label_key = _label_key(label)
@@ -188,10 +197,39 @@ def _window_indices(n_samples: int, window_len: int, hop_len: int) -> Iterable[i
     return range(0, n_samples - window_len + 1, hop_len)
 
 
+def _window_indices_range(
+    start_idx: int, end_idx: int, window_len: int, hop_len: int
+) -> Iterable[int]:
+    if end_idx - start_idx < window_len:
+        return []
+    return range(start_idx, end_idx - window_len + 1, hop_len)
+
+
 def _count_windows(n_samples: int, window_len: int, hop_len: int) -> int:
     if n_samples < window_len:
         return 0
     return 1 + (n_samples - window_len) // hop_len
+
+
+def _count_windows_range(start_idx: int, end_idx: int, window_len: int, hop_len: int) -> int:
+    span = end_idx - start_idx
+    return _count_windows(span, window_len, hop_len)
+
+
+def _ranges_for_audio(n_samples: int, config: WindowConfig) -> list[tuple[int, int]]:
+    if n_samples <= 0:
+        return []
+    if not config.split or config.split_config is None:
+        return [(0, n_samples)]
+    duration_s = n_samples / float(config.sample_rate)
+    ranges_s = compute_split_ranges(duration_s, config.split_config).get(config.split, [])
+    ranges: list[tuple[int, int]] = []
+    for start_s, end_s in ranges_s:
+        start_idx = max(0, int(round(start_s * config.sample_rate)))
+        end_idx = max(0, int(round(end_s * config.sample_rate)))
+        if end_idx > start_idx:
+            ranges.append((start_idx, min(end_idx, n_samples)))
+    return ranges
 
 
 def _print_summary(summary: DatasetSummary, config: WindowConfig, samples_dir: Path) -> None:

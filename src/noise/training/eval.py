@@ -17,6 +17,7 @@ from noise.config.loader import (
 from noise.model.baseline import LABELS, BaselineBundle, BaselineFeatureConfig, extract_features
 from noise.model.loader import load_inference_model
 from noise.training.dataset import WindowConfig, WindowedWavDataset, list_wav_files
+from noise.training.splits import split_config_from_dict
 
 
 def _build_matrix(dataset: WindowedWavDataset, feature_config: BaselineFeatureConfig) -> tuple[np.ndarray, np.ndarray]:
@@ -49,6 +50,13 @@ def main() -> None:
     parser.add_argument("--sample-rate", type=int, default=None)
     parser.add_argument("--window-s", type=float, default=None)
     parser.add_argument("--hop-s", type=float, default=None)
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="test",
+        choices=("train", "val", "test", "none"),
+        help="Use per-file time splits (train/val/test) or 'none' for full files.",
+    )
     parser.add_argument("--hist-out", type=Path, default=None, help="Optional CSV path for probability histograms.")
     parser.add_argument("--hist-bins", type=int, default=50)
     parser.add_argument("--allow-heuristics", action="store_true")
@@ -66,11 +74,15 @@ def main() -> None:
 
     if sample_rate != bundle.sample_rate:
         print(f"Warning: overriding sample_rate {sample_rate} -> {bundle.sample_rate} to match model config.")
+    split_name = None if args.split == "none" else args.split
+    split_cfg = split_config_from_dict(get_nested(config, "splits")) if split_name else None
     window_config = WindowConfig(
         sample_rate=bundle.sample_rate,
         window_s=window_s,
         hop_s=hop_s,
         strict_labels=not args.allow_heuristics,
+        split=split_name,
+        split_config=split_cfg,
     )
     feature_config = bundle.config if isinstance(bundle, BaselineBundle) else None
 

@@ -23,8 +23,27 @@ model:
       num_outputs: 2
 
 training:
+  split_mode: ranges
   train_split: 0.8
   seed: 13
+  augment:
+    enabled: true
+    p_gain: 0.8
+    gain_db_min: -6.0
+    gain_db_max: 6.0
+    p_filter: 0.5
+    p_noise: 0.4
+    noise_db_min: -30.0
+    noise_db_max: -15.0
+    p_time_mask: 0.3
+    time_mask_max_s: 0.2
+
+splits:
+  train_s: 100.0
+  val_s: 30.0
+  test_s: 30.0
+  gap_s: 10.0
+  test_at_end: true
 
 inference:
   chunk_s: 1.0

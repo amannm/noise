@@ -41,10 +41,21 @@ def beats_model_factory(checkpoint: Mapping[str, Any]) -> Any:
     try:
         from beats import BEATs, BEATsConfig
     except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
-        raise ModuleNotFoundError(
-            "BEATs module not found. Install the official BEATs repo on PYTHONPATH "
-            "or provide a custom model_factory."
-        ) from exc
+        try:
+            import sys
+            from importlib import import_module
+
+            beats_root = Path(__file__).resolve().parents[3] / "reference" / "unilm" / "beats"
+            if beats_root.exists() and str(beats_root) not in sys.path:
+                sys.path.insert(0, str(beats_root))
+            module = import_module("BEATs")
+            BEATs = getattr(module, "BEATs")
+            BEATsConfig = getattr(module, "BEATsConfig")
+        except Exception as fallback_exc:  # pragma: no cover - optional dependency
+            raise ModuleNotFoundError(
+                "BEATs module not found. Install the official BEATs repo on PYTHONPATH "
+                "or provide a custom model_factory."
+            ) from fallback_exc
 
     cfg = checkpoint.get("cfg")
     if cfg is None:
