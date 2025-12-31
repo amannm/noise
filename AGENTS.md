@@ -6,7 +6,7 @@
 
 # Environment
 - You **MUST** use `uv` for executing Python scripts.
-- `./samples` contains steady-state, 3-minute `.m4a` files for each possible state.
+- `./samples` contains steady-state, 3-minute `.m4a` recordings for several states.
 
 # Additional constraints
 - No backwards compatibility.
