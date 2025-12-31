@@ -298,3 +298,68 @@ But honestly: start with the independent detectors + cooldown. It’s usually en
 
 ---
 
+Nice — BEATs_iter3+ (AS2M) is the “ViT-B-ish” BEATs variant many SED papers use as a frozen semantic encoder. It’s commonly described as a 12-layer transformer with hidden size 768, taking 16 kHz audio → 128-bin mel filterbank features (25 ms / 10 ms).  ￼
+
+That lets you push your detector to be more responsive than the conservative defaults I gave earlier, without getting too twitchy.
+
+Recommended real-time config for iter3+ (AS2M)
+
+Window / hop (balanced for latency + robustness)
+	•	Inference window: 2.0 s
+	•	Inference hop: 0.5 s
+	•	Ring buffer: 3–4 s
+
+Why: 2 s is usually enough for appliance timbre, and with iter3+ you still get stable embeddings; 0.5 s hop gives quick event reaction without heavy compute.
+
+If you find fridge detection is marginal, bump only the fridge branch to a 4.0 s window (still 0.5 s hop), while keeping AC at 2.0 s.
+
+Smoothing (slightly faster than before)
+	•	Median over 7 hops (≈3.5 s)
+	•	EMA time constant τ = 4 s (instead of 6 s)
+
+This reduces “on” latency while still killing spikes.
+
+Hysteresis + hold-times tuned for iter3+
+
+Start here (then auto-calibrate thresholds from your 4 WAVs):
+
+AC
+	•	T_on_ac = 0.78
+	•	T_off_ac = 0.42
+	•	N_on_ac = 2.0 s  (4 hops)
+	•	N_off_ac = 6.0 s (12 hops)
+	•	cooldown = 15 s
+
+Fridge
+	•	T_on_fr = 0.70
+	•	T_off_fr = 0.38
+	•	N_on_fr = 3.0 s  (6 hops)
+	•	N_off_fr = 10.0 s (20 hops)
+	•	cooldown = 20 s
+
+These are “event-friendly” (faster ON) but still avoid flapping when your apartment has random transients.
+
+Auto-calibrate thresholds from your four WAVs (best next step)
+
+Run your model over each file and collect p_ac, p_fridge values.
+
+For each device:
+	•	T_off = percentile(P_absent, 97)  (near-top of “absent”)
+	•	T_on  = percentile(P_present, 15) (near-bottom of “present”)
+
+Then set:
+	•	T_on = max(T_on, T_off + 0.10) (force a 0.10 gap if needed)
+
+Because iter3+ embeddings separate classes pretty well in practice, you’ll often get a nice gap with just those four clips. (If you don’t, the fix is usually “longer window for fridge” + slightly more smoothing.)
+
+One BEATs_iter3+–specific improvement (worth doing)
+
+Instead of mean-pooling BEATs tokens, use attentive pooling (1 tiny attention layer) over the time tokens before the 2-unit sigmoid head. This tends to help when the “signature” is intermittent inside the 2–4s window (fridge compressors can fluctuate).
+
+Sanity check on what iter3+ is doing under the hood
+
+Many papers using BEATs_iter3+ (AS2M) follow the same frontend assumptions: resample to 16 kHz and compute 128-dim mel filterbank features, then feed those to the 12-layer / 768-dim transformer encoder.  ￼
+
+⸻
+
+If you paste the distribution summaries from your four WAVs (e.g., mean/median/95th percentile of p_ac and p_fridge per file), I’ll plug them into the calibration rule above and give you concrete T_on/T_off values that should work immediately in your apartment.
