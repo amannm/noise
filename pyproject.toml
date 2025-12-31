@@ -10,4 +10,5 @@ dependencies = [
     "joblib",
     "sounddevice",
     "soundfile",
+    "pyyaml",
 ]

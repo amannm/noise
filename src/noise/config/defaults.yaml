@@ -1,0 +1,29 @@
+audio:
+  sample_rate: 16000
+  mel_bins: 128
+  win_ms: 25.0
+  hop_ms: 10.0
+
+inference:
+  chunk_s: 1.0
+  window_s: 4.0
+  hop_s: 0.5
+  ring_buffer_s: 6.0
+
+smoothing:
+  median_N: 9
+  ema_tau_s: 6.0
+
+hysteresis:
+  ac:
+    t_on: 0.75
+    t_off: 0.35
+    n_on_s: 4.0
+    n_off_s: 8.0
+    cooldown_s: 20.0
+  fridge:
+    t_on: 0.65
+    t_off: 0.30
+    n_on_s: 6.0
+    n_off_s: 12.0
+    cooldown_s: 20.0
