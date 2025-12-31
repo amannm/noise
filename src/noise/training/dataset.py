@@ -42,10 +42,18 @@ class WindowRef:
 class WindowedWavDataset:
     """Windowed steady-state dataset with cached audio per file."""
 
-    def __init__(self, samples_dir: Path, config: WindowConfig) -> None:
+    def __init__(
+        self,
+        samples_dir: Path,
+        config: WindowConfig,
+        *,
+        files: list[Path] | None = None,
+    ) -> None:
         self.samples_dir = samples_dir
         self.config = config
-        self.files = _list_wav_files(samples_dir)
+        self.files = sorted(files) if files is not None else _list_wav_files(samples_dir)
+        if not self.files:
+            raise FileNotFoundError(f"No .wav files provided for dataset at {samples_dir}")
         self._audio_cache: dict[Path, np.ndarray] = {}
         self._index: list[WindowRef] = []
         self._build_index()
@@ -119,6 +127,14 @@ def summarize_dataset(samples_dir: Path, config: WindowConfig) -> DatasetSummary
         per_file=per_file,
         label_counts=label_counts,
     )
+
+
+def list_wav_files(samples_dir: Path) -> list[Path]:
+    return _list_wav_files(samples_dir)
+
+
+def label_from_path(path: Path, *, strict: bool = True) -> tuple[int, int]:
+    return _label_from_path(path, strict=strict)
 
 
 def _list_wav_files(samples_dir: Path) -> list[Path]:
