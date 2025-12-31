@@ -192,10 +192,9 @@ Deliverables:
 1. **ONNX export** for head + BEATs (if feasible).
 2. **Core ML export** via coremltools (head or ONNX conversion).
 3. **onnxruntime** with CoreML EP (Apple accel).
-4. **Benchmark** CPU usage and latency.
 
 Deliverables:
-- `model/export_onnx.py`, `model/export_coreml.py` + benchmark script.
+- `model/export_onnx.py`, `model/export_coreml.py`
 
 ---
 
