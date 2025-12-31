@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +29,8 @@ def main() -> None:
     parser.add_argument("--sample-rate", type=int, default=16000)
     parser.add_argument("--window-s", type=float, default=4.0)
     parser.add_argument("--hop-s", type=float, default=0.5)
+    parser.add_argument("--hist-out", type=Path, default=None, help="Optional CSV path for probability histograms.")
+    parser.add_argument("--hist-bins", type=int, default=50)
     parser.add_argument("--allow-heuristics", action="store_true")
     args = parser.parse_args()
 
@@ -61,6 +64,36 @@ def main() -> None:
         except ValueError:
             auprc = float("nan")
         print(f"  {label}: AUROC={auroc:.4f} AUPRC={auprc:.4f}")
+
+    if args.hist_out:
+        if args.hist_bins <= 1:
+            raise ValueError("hist-bins must be > 1")
+        edges = np.linspace(0.0, 1.0, args.hist_bins + 1)
+        rows: list[dict[str, object]] = []
+        for idx, label in enumerate(LABELS):
+            present = probs[y[:, idx] == 1, idx]
+            absent = probs[y[:, idx] == 0, idx]
+            present_hist, _ = np.histogram(present, bins=edges)
+            absent_hist, _ = np.histogram(absent, bins=edges)
+            for bin_idx in range(args.hist_bins):
+                rows.append(
+                    {
+                        "label": label,
+                        "bin_start": float(edges[bin_idx]),
+                        "bin_end": float(edges[bin_idx + 1]),
+                        "present_count": int(present_hist[bin_idx]),
+                        "absent_count": int(absent_hist[bin_idx]),
+                    }
+                )
+        args.hist_out.parent.mkdir(parents=True, exist_ok=True)
+        with args.hist_out.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=["label", "bin_start", "bin_end", "present_count", "absent_count"],
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Wrote histogram CSV to {args.hist_out}")
 
 
 if __name__ == "__main__":
