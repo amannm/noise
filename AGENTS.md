@@ -12,6 +12,7 @@
 - **Always** use `uv` for working with Python.
 
 # Additional constraints
+- Deliver a *quality* implementation, **NOT** a quick one.
 - No backwards compatibility.
 - No fallback behaviors.
 - No legacy code.
