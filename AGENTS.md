@@ -3,4 +3,4 @@
 
 # Environment
 - `uv` for executing Python scripts.
-- `./samples` contains steady-state `.wav` for three minutes and for each of the three states.
+- `./samples` contains steady-state, 3-minute `.wav` files for each possible state.
