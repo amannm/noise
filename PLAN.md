@@ -252,15 +252,15 @@ Deliverable:
 ---
 
 ## 7) Milestones & Deliverables
-1. **M1: Offline baseline** (DONE)
+1. **M1: Offline baseline**
    - Training + evaluation from steady-state clips.
-2. **M2: Event logic** (DONE)
+2. **M2: Event logic**
    - Smoothing + hysteresis tests, no false transitions offline.
-3. **M3: Live loop** (DONE)
+3. **M3: Live loop**
    - Real-time stream + logs.
-4. **M4: Calibration** (DONE)
+4. **M4: Calibration**
    - Auto thresholds persisted.
-5. **M5: Optimization** (IN PROGRESS)
+5. **M5: Optimization**
    - ONNX/CoreML export tools; latency benchmark pending.
 
 ---
@@ -270,11 +270,3 @@ Deliverable:
 - Response within 2–10s: verified in live tests.
 - Real-time MacBook performance: benchmarked in M5.
 - Calibration using steady-state clips only: delivered in M4.
-
----
-
-## 9) Immediate Next Actions
-1. Add BEATs encoder wrapper + temporal head (keep baseline path as fallback).
-2. Add BEATs training loop (freeze encoder, train head).
-3. Add BEATs eval + calibration parity with baseline scripts.
-4. Benchmark latency; consider ONNX/CoreML export.
