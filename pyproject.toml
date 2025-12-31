@@ -11,4 +11,6 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "pyyaml",
+    "pytest",
+    "resampy",
 ]
