@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -80,6 +81,7 @@ def main() -> None:
     )
     parser.add_argument("--log-probs", type=Path, default=None)
     parser.add_argument("--log-events", type=Path, default=None)
+    parser.add_argument("--report", type=Path, default=None, help="Write a JSON summary report.")
     parser.add_argument("--require-no-events", action="store_true")
     parser.add_argument("--allow-heuristics", action="store_true")
     args = parser.parse_args()
@@ -132,6 +134,9 @@ def main() -> None:
     total_windows = 0
     total_events = 0
     any_failed = False
+    failed_files: list[str] = []
+    skipped_files: list[str] = []
+    per_file_reports: list[dict[str, object]] = []
 
     try:
         for path in files:
@@ -139,6 +144,7 @@ def main() -> None:
             audio = _load_audio(path, target_sr=target_sr)
             if len(audio) < window_len:
                 print(f"{path.name}: skipped (audio shorter than window)")
+                skipped_files.append(path.name)
                 continue
 
             initial_state = _initial_state(args.initial_state, label)
@@ -189,14 +195,49 @@ def main() -> None:
             label_str = "ac" if label[0] else "none"
             if label[1]:
                 label_str = "both" if label[0] else "fridge"
+            per_file_reports.append(
+                {
+                    "file": path.name,
+                    "label": label_str,
+                    "duration_s": round(len(audio) / target_sr, 3),
+                    "windows": file_windows,
+                    "events": dict(file_events),
+                    "event_total": file_event_total,
+                }
+            )
             print(
                 f"{path.name}: label={label_str} windows={file_windows} "
                 f"events=ac:{file_events['ac']} fridge:{file_events['fridge']}"
             )
             if args.require_no_events and file_event_total > 0:
                 any_failed = True
+                failed_files.append(path.name)
 
         print(f"\nSummary: files={len(files)} windows={total_windows} events={total_events}")
+
+        summary = {
+            "samples_dir": str(args.samples_dir),
+            "config": str(args.config) if args.config else None,
+            "model_path": str(args.model_path) if args.model_path else None,
+            "window_s": window_s,
+            "hop_s": hop_s,
+            "files": len(files),
+            "processed_files": len(per_file_reports),
+            "skipped_files": skipped_files,
+            "failed_files": failed_files,
+            "total_windows": total_windows,
+            "total_events": total_events,
+            "require_no_events": args.require_no_events,
+            "passed": not (args.require_no_events and any_failed),
+            "per_file": per_file_reports,
+        }
+
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            with args.report.open("w", encoding="utf-8") as f:
+                json.dump(summary, f, indent=2)
+            print(f"Saved report to {args.report}")
+
         if args.require_no_events and any_failed:
             print("FAILED: events detected in steady-state files.")
             sys.exit(1)

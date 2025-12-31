@@ -22,17 +22,17 @@ Non-goals (this iteration): full SED boundary training, multi-room localization,
 - Phase 3 — Training: DONE (baseline + BEATs head-only training + AUROC/AUPRC); PARTIAL (no partial fine-tune/LoRA, no calibration stats logging).
 - Phase 4 — Calibration: DONE (percentile thresholds + merged config).
 - Phase 5 — Realtime Inference: DONE (capture → buffer → model → smoothing → hysteresis → logging).
-- Phase 6 — Offline Validation: PARTIAL (offline replay exists, no plots or report).
+- Phase 6 — Offline Validation: PARTIAL (offline replay + summary report option; no plots).
 - Phase 7 — Deployment: PARTIAL (ONNX/CoreML export exists, no onnxruntime CoreML EP runtime).
 - Phase 8 — Tests: PARTIAL (unit tests exist, no integration/CI gating).
-- Phase 10 — Docs/Runbook: PARTIAL (scripts exist, no consolidated runbook/README).
+- Phase 10 — Docs/Runbook: DONE (README runbook added).
 
 ---
 
 ## Priority Backlog (Suggested Order)
 **P0 (Unblocks real use)**
-- Add a concise runbook/README with exact `uv` commands for: dataset summary, train (baseline + BEATs), calibrate, offline check, realtime streaming.
-- Add an end-to-end offline integration check that:
+- DONE: Add a concise runbook/README with exact `uv` commands for: dataset summary, train (baseline + BEATs), calibrate, offline check, realtime streaming.
+- DONE: Add an end-to-end offline integration check that:
   - runs inference on each steady-state WAV
   - asserts zero events when `--require-no-events` is enabled
   - emits a short summary report
@@ -56,7 +56,7 @@ Non-goals (this iteration): full SED boundary training, multi-room localization,
 Status (as of December 31, 2025):
 - DONE: Core pipeline modules exist (`src/noise/audio/*`, `src/noise/inference/*`, `src/noise/model/*`, `src/noise/training/*`, `src/noise/config/defaults.yaml`).
 - PARTIAL: BEATs runtime depends on external artifacts (`models/BEATs_iter3_plus_AS2M.pt`, BEATs repo on `PYTHONPATH`, `torch`).
-- MISSING: UI/dashboard, onnxruntime CoreML EP runtime wiring, consolidated runbook.
+- MISSING: UI/dashboard, onnxruntime CoreML EP runtime wiring.
 
 **Deliverable:** a mapping of SPEC requirements to implemented modules and gaps.
 - Verify existing module coverage:
@@ -240,7 +240,8 @@ Per device:
 
 Status (as of December 31, 2025):
 - PARTIAL: Offline replay + event checks exist (`src/noise/inference/offline.py`).
-- MISSING: Probability distribution plots or automated validation report.
+- PARTIAL: JSON summary report option exists.
+- MISSING: Probability distribution plots.
 
 ### 7.1 Offline replay
 - Run the inference pipeline on steady-state WAVs and verify:
@@ -302,7 +303,7 @@ Status (as of December 31, 2025):
 **Goal:** make the system easy to operate and iterate.
 
 Status (as of December 31, 2025):
-- PARTIAL: Helper scripts exist (`scripts/*`) but no consolidated README/runbook.
+- DONE: README runbook added (`README.md`) and helper scripts exist (`scripts/*`).
 
 - Quickstart steps:
   1. Place steady-state WAVs in `./samples`.
