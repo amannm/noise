@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -10,6 +12,10 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.beats.model import NoiseClassifier, load_beats_checkpoint
 from src.datasets.window_dataset import WindowDataset
@@ -38,7 +44,7 @@ def filter_windows(
 
 
 def compute_pos_weight_from_df(df: pd.DataFrame) -> torch.Tensor:
-    pos = torch.tensor([df[\"ac\"].sum(), df[\"fridge\"].sum()], dtype=torch.float32)
+    pos = torch.tensor([df["ac"].sum(), df["fridge"].sum()], dtype=torch.float32)
     total = torch.tensor([len(df), len(df)], dtype=torch.float32)
     neg = total - pos
     pos_weight = torch.where(pos > 0, neg / pos, torch.ones_like(pos))
@@ -167,10 +173,10 @@ def main() -> None:
         if mean_f1 > best_f1:
             best_f1 = mean_f1
             best_state = {
-                "model": model.state_dict(),
+                "model": copy.deepcopy(model.state_dict()),
                 "metrics": metrics,
             }
-            best_head = model.head.state_dict()
+            best_head = copy.deepcopy(model.head.state_dict())
 
         with (args.output_dir / "metrics.jsonl").open("a") as f:
             f.write(json.dumps(metrics) + "\n")

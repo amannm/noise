@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 import pandas as pd
-import torchaudio
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.utils.audio import probe_audio
 
 FILENAME_RE = re.compile(
     r"^ac-(on|off)-fridge-(on|off)-(day|night)\.m4a$"
@@ -39,14 +45,15 @@ def build_manifest(samples_dir: Path) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for path in sorted(samples_dir.glob("*.m4a")):
         labels = parse_labels(path.name)
-        info = torchaudio.info(str(path))
-        duration_sec = info.num_frames / float(info.sample_rate)
+        info = probe_audio(path)
+        duration_sec = info.duration_sec
+        sample_rate = info.sample_rate
         recording_id = path.stem
         rows.append(
             {
                 "path": str(path.as_posix()),
                 "duration_sec": duration_sec,
-                "sample_rate": info.sample_rate,
+                "sample_rate": sample_rate,
                 "ac": labels["ac"],
                 "fridge": labels["fridge"],
                 "state": labels["state"],

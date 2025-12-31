@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -12,6 +14,10 @@ import sounddevice as sd
 import torch
 import tomllib
 import torchaudio.functional as F
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.beats.model import NoiseClassifier, load_beats_checkpoint
 from src.beats.preprocess import beats_fbank
@@ -31,6 +37,7 @@ DEFAULTS = {
     "fr_off": 0.55,
     "debounce_k": 2,
     "sd_device": None,
+    "max_lag_sec": 30.0,
 }
 
 
@@ -169,6 +176,7 @@ def main() -> None:
     parser.add_argument("--fr-on", type=float, default=cfg.get("fr_on", DEFAULTS["fr_on"]))
     parser.add_argument("--fr-off", type=float, default=cfg.get("fr_off", DEFAULTS["fr_off"]))
     parser.add_argument("--debounce-k", type=int, default=cfg.get("debounce_k", DEFAULTS["debounce_k"]))
+    parser.add_argument("--max-lag-sec", type=float, default=cfg.get("max_lag_sec", DEFAULTS["max_lag_sec"]))
     parser.add_argument(
         "--sd-device",
         type=str,
@@ -263,12 +271,41 @@ def main() -> None:
                     emit(payload)
         else:
             processor = LiveProcessor(args, model)
-            with sd.InputStream(**stream_kwargs) as stream:
+            block_queue: deque[np.ndarray] = deque()
+            queue_samples = 0
+            queue_lock = threading.Condition()
+            callback_error: list[str] = []
+
+            max_queue_samples = None
+            if args.max_lag_sec is not None and args.max_lag_sec > 0:
+                max_queue_samples = int(round(args.max_lag_sec * args.input_sr))
+
+            def callback(indata, frames, time_info, status) -> None:
+                nonlocal queue_samples
+                with queue_lock:
+                    if status.input_overflow:
+                        callback_error.append("Audio input overflowed in callback")
+                        queue_lock.notify()
+                        raise sd.CallbackStop
+                    block = indata[:, 0].copy()
+                    block_queue.append(block)
+                    queue_samples += len(block)
+                    if max_queue_samples is not None and queue_samples > max_queue_samples:
+                        callback_error.append("Audio processing lag exceeded max_lag_sec")
+                        queue_lock.notify()
+                        raise sd.CallbackStop
+                    queue_lock.notify()
+
+            with sd.InputStream(callback=callback, **stream_kwargs):
                 while True:
-                    block, overflowed = stream.read(hop_samples)
-                    if overflowed:
-                        raise RuntimeError("Audio input overflowed")
-                    block = block.reshape(-1).copy()
+                    with queue_lock:
+                        while not block_queue and not callback_error:
+                            queue_lock.wait()
+                        if callback_error:
+                            raise RuntimeError(callback_error[0])
+                        block = block_queue.popleft()
+                        queue_samples -= len(block)
+
                     payload = processor.process_block(block)
                     if payload is None:
                         continue

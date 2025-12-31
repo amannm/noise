@@ -22,6 +22,7 @@ uv run python src/train/thresholds.py \
 ## 1) Prerequisites
 - **Python 3.12+**
 - **uv** installed and available on PATH
+- **FFmpeg** installed and available on PATH (used for decoding `.m4a`)
 - **BEATs checkpoint file**: `BEATs_iter3_plus_AS2M.pt`
   - You must provide the local path to this file when training and when running inference.
 

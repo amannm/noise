@@ -1,0 +1,9 @@
+path,duration_sec,sample_rate,ac,fridge,state,daypart,recording_id
+samples/ac-off-fridge-off-day.m4a,180.813787,44100,0,0,both-off,day,ac-off-fridge-off-day
+samples/ac-off-fridge-off-night.m4a,180.210068,44100,0,0,both-off,night,ac-off-fridge-off-night
+samples/ac-off-fridge-on-day.m4a,180.535147,44100,0,1,fridge-on,day,ac-off-fridge-on-day
+samples/ac-off-fridge-on-night.m4a,180.720907,44100,0,1,fridge-on,night,ac-off-fridge-on-night
+samples/ac-on-fridge-off-day.m4a,180.558367,44100,1,0,ac-on,day,ac-on-fridge-off-day
+samples/ac-on-fridge-off-night.m4a,180.628027,44100,1,0,ac-on,night,ac-on-fridge-off-night
+samples/ac-on-fridge-on-day.m4a,180.744127,44100,1,1,ac-on,day,ac-on-fridge-on-day
+samples/ac-on-fridge-on-night.m4a,180.720907,44100,1,1,ac-on,night,ac-on-fridge-on-night

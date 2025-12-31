@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.beats.model import NoiseClassifier, load_beats_checkpoint
 from src.datasets.window_dataset import WindowDataset
@@ -111,10 +116,10 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     content = (
-        f"t_ac: {float(t_ac):.4f}\\n"
-        f"t_fr: {float(t_fr):.4f}\\n"
-        f"f1_ac: {float(f1_ac):.4f}\\n"
-        f"f1_fridge: {float(f1_fr):.4f}\\n"
+        f"t_ac: {float(t_ac):.4f}\n"
+        f"t_fr: {float(t_fr):.4f}\n"
+        f"f1_ac: {float(f1_ac):.4f}\n"
+        f"f1_fridge: {float(f1_fr):.4f}\n"
     )
     args.output.write_text(content)
 

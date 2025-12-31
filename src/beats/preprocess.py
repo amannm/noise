@@ -15,10 +15,15 @@ def _as_batch(waveform: torch.Tensor) -> torch.Tensor:
     if waveform.dim() == 1:
         return waveform.unsqueeze(0)
     if waveform.dim() == 2:
-        # (channels, samples) -> mono -> (1, samples)
-        if waveform.size(0) > 1:
-            waveform = waveform.mean(dim=0, keepdim=False)
-        return waveform.unsqueeze(0)
+        # Heuristic: treat as (channels, samples) when first dim is small.
+        if waveform.size(0) <= 4 and waveform.size(1) > waveform.size(0):
+            if waveform.size(0) > 1:
+                waveform = waveform.mean(dim=0, keepdim=False)
+            else:
+                waveform = waveform.squeeze(0)
+            return waveform.unsqueeze(0)
+        # Otherwise assume (batch, samples)
+        return waveform
     if waveform.dim() == 3:
         # (batch, channels, samples) -> mono
         if waveform.size(1) > 1:
