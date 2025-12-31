@@ -78,19 +78,19 @@ Notes:
 
 ## 2) Iteration Plan (High-Level)
 
-### Iteration 1: Baseline presence model + offline sanity checks (DONE)
+### Iteration 1: Baseline presence model + offline sanity checks
 Goal: produce stable probability streams per device from steady-state WAVs.
 
-### Iteration 2: Event detection (smoothing + hysteresis) (DONE)
+### Iteration 2: Event detection (smoothing + hysteresis)
 Goal: clean on/off events on steady-state files (no false transitions).
 
-### Iteration 3: Live inference loop (DONE)
+### Iteration 3: Live inference loop
 Goal: real-time probabilities + events from microphone input.
 
-### Iteration 4: Calibration + tuning (DONE)
+### Iteration 4: Calibration + tuning
 Goal: auto-thresholds from steady-state clips; reduced manual tuning.
 
-### Iteration 5: BEATs integration + optimization (NEXT)
+### Iteration 5: BEATs integration + optimization
 Goal: BEATs encoder + temporal head, optional ONNX/CoreML acceleration, stable CPU usage.
 
 ---
