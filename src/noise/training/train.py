@@ -99,6 +99,11 @@ def main() -> None:
     parser.add_argument("--train-split", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--allow-heuristics", action="store_true")
+    parser.add_argument(
+        "--window-split",
+        action="store_true",
+        help="Split train/val at the window level (ignores file boundaries).",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config) if args.config else load_default_config()
@@ -126,28 +131,52 @@ def main() -> None:
     feature_config = BaselineFeatureConfig(sample_rate=sample_rate)
 
     files = list_wav_files(args.samples_dir)
-    if len(files) < 2:
-        raise ValueError("Need at least 2 WAV files for train/val split")
+    if not files:
+        raise ValueError("No WAV files found for training.")
 
-    train_files, val_files = _split_files_with_coverage(
-        files,
-        train_split=train_split,
-        seed=seed,
-        strict_labels=not args.allow_heuristics,
-    )
+    if args.window_split:
+        dataset = WindowedWavDataset(args.samples_dir, window_config, files=files)
+        x_all, y_all = _build_matrix(dataset, feature_config)
+        if x_all.shape[0] == 0:
+            raise ValueError("No windows generated from dataset.")
+        if train_split >= 1.0:
+            x_train, y_train = x_all, y_all
+            x_val, y_val = (None, None)
+        else:
+            x_train, x_val, y_train, y_val = train_test_split(
+                x_all,
+                y_all,
+                train_size=train_split,
+                random_state=seed,
+                shuffle=True,
+            )
+        print(f"Files: {len(files)} (window-level split)")
+        print(f"Train windows: {len(x_train)}")
+        if x_val is not None:
+            print(f"Val windows: {len(x_val)}")
+    else:
+        if len(files) < 2:
+            raise ValueError("Need at least 2 WAV files for train/val split")
 
-    train_ds = WindowedWavDataset(args.samples_dir, window_config, files=train_files)
-    val_ds = WindowedWavDataset(args.samples_dir, window_config, files=val_files) if val_files else None
+        train_files, val_files = _split_files_with_coverage(
+            files,
+            train_split=train_split,
+            seed=seed,
+            strict_labels=not args.allow_heuristics,
+        )
 
-    print(f"Train files: {len(train_files)}  Val files: {len(val_files)}")
-    print(f"Train windows: {len(train_ds)}")
-    if val_ds is not None:
-        print(f"Val windows: {len(val_ds)}")
+        train_ds = WindowedWavDataset(args.samples_dir, window_config, files=train_files)
+        val_ds = WindowedWavDataset(args.samples_dir, window_config, files=val_files) if val_files else None
 
-    x_train, y_train = _build_matrix(train_ds, feature_config)
-    x_val, y_val = (None, None)
-    if val_ds is not None:
-        x_val, y_val = _build_matrix(val_ds, feature_config)
+        print(f"Train files: {len(train_files)}  Val files: {len(val_files)}")
+        print(f"Train windows: {len(train_ds)}")
+        if val_ds is not None:
+            print(f"Val windows: {len(val_ds)}")
+
+        x_train, y_train = _build_matrix(train_ds, feature_config)
+        x_val, y_val = (None, None)
+        if val_ds is not None:
+            x_val, y_val = _build_matrix(val_ds, feature_config)
 
     estimator = build_estimator(random_state=seed)
     estimator.fit(x_train, y_train)

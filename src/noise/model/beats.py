@@ -83,7 +83,7 @@ def encode_audio(
     audio: np.ndarray,
     *,
     sample_rate: int,
-    normalize: bool = True,
+    normalize: bool = False,
 ) -> Any:
     if sample_rate != encoder.config.target_sr:
         raise ValueError(

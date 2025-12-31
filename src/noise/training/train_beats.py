@@ -66,10 +66,11 @@ def _split_files_with_coverage(
     return files, []
 
 
-def _iter_batches(dataset: WindowedWavDataset, batch_size: int):
+def _iter_batches(dataset: WindowedWavDataset, batch_size: int, indices: np.ndarray | None = None):
     batch_audio = []
     batch_labels = []
-    for audio, label, _ in dataset:
+    iterable = (dataset[i] for i in indices) if indices is not None else dataset
+    for audio, label, _ in iterable:
         batch_audio.append(audio)
         batch_labels.append(label)
         if len(batch_audio) >= batch_size:
@@ -128,6 +129,11 @@ def main() -> None:
     parser.add_argument("--train-split", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--allow-heuristics", action="store_true")
+    parser.add_argument(
+        "--window-split",
+        action="store_true",
+        help="Split train/val at the window level (ignores file boundaries).",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config) if args.config else load_default_config()
@@ -161,23 +167,51 @@ def main() -> None:
     )
 
     files = list_wav_files(args.samples_dir)
-    if len(files) < 2:
-        raise ValueError("Need at least 2 WAV files for train/val split")
+    if not files:
+        raise ValueError("No WAV files found for training.")
 
-    train_files, val_files = _split_files_with_coverage(
-        files,
-        train_split=train_split,
-        seed=seed,
-        strict_labels=not args.allow_heuristics,
-    )
+    train_ds = None
+    val_ds = None
+    train_indices = None
+    val_indices = None
 
-    train_ds = WindowedWavDataset(args.samples_dir, window_config, files=train_files)
-    val_ds = WindowedWavDataset(args.samples_dir, window_config, files=val_files) if val_files else None
+    if args.window_split:
+        dataset = WindowedWavDataset(args.samples_dir, window_config, files=files)
+        indices = np.arange(len(dataset))
+        if train_split >= 1.0:
+            train_indices = indices
+            val_indices = np.array([], dtype=int)
+        else:
+            train_indices, val_indices = train_test_split(
+                indices,
+                train_size=train_split,
+                random_state=seed,
+                shuffle=True,
+            )
+        train_ds = dataset
+        val_ds = dataset if val_indices.size > 0 else None
+        print(f"Files: {len(files)} (window-level split)")
+        print(f"Train windows: {len(train_indices)}")
+        if val_indices.size > 0:
+            print(f"Val windows: {len(val_indices)}")
+    else:
+        if len(files) < 2:
+            raise ValueError("Need at least 2 WAV files for train/val split")
 
-    print(f"Train files: {len(train_files)}  Val files: {len(val_files)}")
-    print(f"Train windows: {len(train_ds)}")
-    if val_ds is not None:
-        print(f"Val windows: {len(val_ds)}")
+        train_files, val_files = _split_files_with_coverage(
+            files,
+            train_split=train_split,
+            seed=seed,
+            strict_labels=not args.allow_heuristics,
+        )
+
+        train_ds = WindowedWavDataset(args.samples_dir, window_config, files=train_files)
+        val_ds = WindowedWavDataset(args.samples_dir, window_config, files=val_files) if val_files else None
+
+        print(f"Train files: {len(train_files)}  Val files: {len(val_files)}")
+        print(f"Train windows: {len(train_ds)}")
+        if val_ds is not None:
+            print(f"Val windows: {len(val_ds)}")
 
     torch = _require_torch()
     beats_config = BeatsConfig(checkpoint_path=checkpoint_path, target_sr=target_sr, device=device)
@@ -198,7 +232,7 @@ def main() -> None:
         if head is not None:
             head.train()
         losses = []
-        for batch_audio, batch_labels in _iter_batches(train_ds, args.batch_size):
+        for batch_audio, batch_labels in _iter_batches(train_ds, args.batch_size, train_indices):
             with torch.no_grad():
                 tokens = encode_audio(encoder, batch_audio, sample_rate=target_sr)
                 tokens = _ensure_btd(tokens, input_dim=head_cfg.input_dim if head_cfg else None)
@@ -237,7 +271,7 @@ def main() -> None:
     y_true = []
     y_prob = []
     with torch.no_grad():
-        for batch_audio, batch_labels in _iter_batches(val_ds, args.batch_size):
+        for batch_audio, batch_labels in _iter_batches(val_ds, args.batch_size, val_indices):
             tokens = encode_audio(encoder, batch_audio, sample_rate=target_sr)
             tokens = _ensure_btd(tokens, input_dim=head_cfg.input_dim if head_cfg else None)
             logits = head(tokens)
