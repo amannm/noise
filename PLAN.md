@@ -13,14 +13,6 @@ This plan operationalizes `SPEC.md` into a buildable system. It is organized by 
 
 ---
 
-## Progress Update (Dec 31, 2025)
-- **Baseline pipeline complete:** windowing + log-mel + logistic baseline, offline eval, smoothing/hysteresis, and live loop are implemented.
-- **Calibration shipped:** steady-state threshold calibration produces config overrides.
-- **CoreML export utility added:** head or ONNX -> Core ML package for experimentation.
-- **Remaining for BEATs-first:** end-to-end BEATs validation in realtime loop + acceleration benchmarking.
-
----
-
 ## 1) Project Structure (Current + Planned)
 ```
 noise/
