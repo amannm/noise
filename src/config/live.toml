@@ -33,10 +33,10 @@ agg_window_n = 7
 # - Wider gaps (higher on, lower off) reduce flapping but can delay transitions.
 # - Narrow gaps respond faster but can oscillate near the boundary.
 # - Keep on > off for each label.
-ac_on = 0.85
-ac_off = 0.60
+ac_on = 0.90
+ac_off = 0.70
 fr_on = 0.75
-fr_off = 0.50
+fr_off = 0.45
 
 # Debounce final 3-state output (require K identical updates).
 # - Adds delay of roughly (debounce_k - 1) * hop_sec on top of hysteresis.
