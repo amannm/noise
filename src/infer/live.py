@@ -97,6 +97,7 @@ class LiveProcessor:
             return None
 
         window = np.concatenate(list(self.audio_buffer))[-self.window_samples :]
+        t0 = time.perf_counter()
         window_tensor = torch.from_numpy(window).to(torch.float32).unsqueeze(0)
         if self.args.input_sr != 16000:
             window_tensor = F.resample(
@@ -119,6 +120,7 @@ class LiveProcessor:
         fr_on = self.fr_hyst.update(med_fr)
         state = derive_state(1 if ac_on else 0, 1 if fr_on else 0)
         debounced = self.debouncer.update(state)
+        process_ms = (time.perf_counter() - t0) * 1000.0
 
         payload = {
             "timestamp": time.time(),
@@ -126,6 +128,7 @@ class LiveProcessor:
             "p_ac": med_ac,
             "p_fridge": med_fr,
             "window_index": self.infer_index,
+            "process_ms": process_ms,
         }
         if source is not None:
             payload["source"] = source

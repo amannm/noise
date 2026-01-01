@@ -7,6 +7,7 @@
 
 # Reference material
 [BEATs Source Code](reference/unilm/beats)
+[CoreML Tools](reference/coremltools)
 
 # Environment
 - **Always** use `uv` for working with Python.
