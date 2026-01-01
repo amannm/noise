@@ -1,0 +1,57 @@
+# rsqrt()
+
+**Instance Method**
+
+**Framework:** Core ML
+
+**Availability:** iOS 18.0+, iPadOS 18.0+, Mac Catalyst 18.0+, macOS 15.0+, tvOS 18.0+, visionOS 2.0+, watchOS 11.0+
+
+[Technologies](https://developer.apple.com/documentation/technologies) > [Core ML](../../coreml.md) > [MLTensor](../mltensor.md)
+
+---
+
+Computes reverse square root of the tensor’s elements.
+
+## Declaration
+
+**Platforms:** iOS, iPadOS, Mac Catalyst, macOS, tvOS, visionOS, watchOS
+
+```objc
+func rsqrt() -> MLTensor
+```
+
+## Overview
+
+The reverse square root operation is the reciprocal of the square root.
+
+## See Also
+
+### Computing the exponent, pow and square root
+
+- [exp()](exp().md)
+  Computes the natural exponent of the tensor’s elements.
+
+- [exp2()](exp2().md)
+  Computes the exponent with base two of the tensor’s elements.
+
+- [pow(_:)](pow(_:).md)
+  Computes element-wise power of each element with `exponent`.
+
+- [squared()](squared().md)
+  Computes square of the tensor’s elements.
+
+- [squareRoot()](squareroot().md)
+  Computes square root of the tensor’s elements.
+
+- [log()](log().md)
+  Computes the natural logarithm of the tensor’s elements.
+
+- [round()](round().md)
+  Rounds the tensor’s elements.
+
+- [matmul(_:)](matmul(_:).md)
+  Multiplies two tensors together using matrix multiplication.
+
+---
+
+*Copyright &copy; 2025 Apple Inc. All rights reserved.*
